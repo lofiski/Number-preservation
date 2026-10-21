@@ -4,3 +4,10 @@
 !.dev.vars.example
 .env*
 !.env.example
+node_modules/
+target/
+.venv/
+__pycache__/
+dist/
+build/
+.obsidian/workspace.json
