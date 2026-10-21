@@ -1,46 +1,24 @@
-name: Deploy eSIM Tracker to Cloudflare
+name: Deploy to Cloudflare
 
-# 设定监听机制：只要 main 分支有任何代码更改推送，就会自动触发构建更新
 on:
   push:
-    branches:
-      - main
-  # 允许你在 GitHub 网页端 "Actions" 面板中手动点击按钮触发构建
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      # 【优化点】增加强制预检机制，防止因为漏填 Secret 导致底层进程报错退出
-      - name: 🛡️ 预检 GitHub Secrets 配置
-        run: |
-          if [ -z "${{ secrets.CF_API_TOKEN }}" ]; then
-            echo "❌ 严重错误: 缺少 CF_API_TOKEN (Cloudflare API令牌)！请在 GitHub 仓库 Settings -> Secrets 中添加。"
-            exit 1
-          fi
-          if [ -z "${{ secrets.CF_ACCOUNT_ID }}" ]; then
-            echo "❌ 严重错误: 缺少 CF_ACCOUNT_ID (Cloudflare 账户ID)！请在 GitHub 仓库 Settings -> Secrets 中添加。"
-            exit 1
-          fi
-          if [ -z "${{ secrets.KV_NAMESPACE_ID }}" ]; then
-            echo "❌ 严重错误: 缺少 KV_NAMESPACE_ID (KV数据库ID)！请在 GitHub 仓库 Settings -> Secrets 中添加。"
-            exit 1
-          fi
-          echo "✅ 所有核心 Secrets 校验通过！准备开始部署..."
-
-      # 将 wrangler.toml 中的占位符安全替换为 GitHub Secrets 里的真实 ID
-      - name: ⚙️ 注入 KV Namespace ID
-        run: sed -i "s/YOUR_KV_NAMESPACE_ID/${{ secrets.KV_NAMESPACE_ID }}/g" wrangler.toml
-
-      # 执行自动部署到 Cloudflare Workers
-      - name: 🚀 Deploy to Cloudflare Workers
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install deps
+        run: npm ci || npm install
+      - name: Build (if present)
+        run: npm run build --if-present
+      - name: Deploy with Wrangler
         uses: cloudflare/wrangler-action@v3
         with:
-          apiToken: ${{ secrets.CF_API_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          # 【优化点】显式声明执行的命令，提高兼容性
-          command: deploy
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
